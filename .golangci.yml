@@ -1,0 +1,58 @@
+# .golangci.yml
+# Standard GolangCI-Lint Configuration File
+
+run:
+  # Maximum time for running linters
+  timeout: 5m
+  # Include test files in linting analysis
+  tests: true
+  # Concurrency level based on available CPU cores
+  concurrency: 4
+
+output:
+  # Output format for lint reports
+  formats:
+    - format: colored-line-number
+  # Print lines of code with issue
+  print-issued-lines: true
+  # Print linter name in the issue statement
+  print-linter-name: true
+
+linters-settings:
+  govet:
+    # Enable shadow variable detection
+    check-shadowing: true
+  gofmt:
+    # Simplify code formatting automatically
+    simplify: true
+  goci-lint:
+    # Custom rules can be added here
+  errcheck:
+    # Report unchecked errors in type assertions
+    check-type-assertions: true
+  revive:
+    # Minimum confidence score for reporting issues
+    confidence: 0.8
+
+linters:
+  # Disable default linters to maintain full explicit control
+  disable-all: true
+  enable:
+    - errcheck     # Checks for unhandled errors
+    - gosimple     # Specializes in simplifying code
+    - govet        # Examines Go source code and reports suspicious constructs
+    - ineffassign  # Detects unused assignments to existing variables
+    - staticcheck  # Applies static analysis inspections
+    - unused       # Checks Go code for unused constants, variables, functions and types
+    - gofmt        # Checks whether code was formatted according to gofmt
+    - gosec        # Inspects source code for security problems
+    - revive       # Fast, configurable, extensible, flexible, and drop-in replacement for golint
+
+issues:
+  # Maximum issues count per same linter (0 means unlimited)
+  max-issues-per-linter: 0
+  # Maximum count of same issue (0 means unlimited)
+  max-same-issues: 0
+  # Exclude vendor directory
+  exclude-dirs:
+    - vendor

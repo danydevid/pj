@@ -1,0 +1,25 @@
+# .editorconfig
+# Top-most configuration file for EditorConfig
+
+root = true
+
+# Global configuration for all file types
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Configuration for Go source files
+[*.go]
+indent_style = tab
+indent_size = 4
+
+# Configuration for YAML files (CI/CD workflows and linters)
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Configuration for Makefiles (Hard tabs are mandatory)
+[{Makefile,*.mk}]
+indent_style = tab
