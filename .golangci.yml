@@ -20,8 +20,8 @@ output:
 
 linters-settings:
   govet:
-    # Enable shadow variable detection
-    check-shadowing: true
+    enable:
+      - shadow
   gofmt:
     # Simplify code formatting automatically
     simplify: true
