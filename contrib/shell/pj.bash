@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-export XDG_DATA_HOME=$HOME
-export PJ_PLUGIN_DIR=$XDG_DATA_HOME
+export PJ_SHELL="bash"
+export PJ_ACTIONS_FILE=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/pj-actions-XXXXXX")
 
-bin/pj /home/danydev/.pj/bin/pj-jump.sh hello world
+bin/pj $@

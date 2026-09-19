@@ -2,8 +2,9 @@ package cli
 
 import (
 	"bytes"
-	"io"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -53,7 +54,6 @@ func TestRootCmd_FlagsAndExecution(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset flag state before running each test case
 			listFlag = false
 			whichFlag = false
 
@@ -84,49 +84,57 @@ func TestRootCmd_FlagsAndExecution(t *testing.T) {
 }
 
 // ==========================================
-// 1. TESTS FOR RESOLVE FUNCTION
+// 1. TESTS FOR RESOLVEPLUGIN FUNCTION
 // ==========================================
 
-func TestResolve_Success(t *testing.T) {
-	// Set temporary environment variable for testing
-	envKey := "TEST_PJ_HOME"
-	expectedVal := "/custom/path"
-	t.Setenv(envKey, expectedVal)
+func TestResolvePlugin_Success(t *testing.T) {
+	tmpDir := t.TempDir()
 
-	got, err := Resolve(envKey)
+	binName := "pj-testcmd"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	mockBinPath := filepath.Join(tmpDir, binName)
+
+	// Create executable mock binary
+	//nolint:gosec // 0755 permission is required for the executable bit test in isExecutable()
+	err := os.WriteFile(mockBinPath, []byte("#!/bin/sh\necho test"), 0755)
+	if err != nil {
+		t.Fatalf("failed to create mock plugin file: %v", err)
+	}
+
+	// Set PJ_PLUGIN_DIR so ResolvePlugin resolves the target mock file first
+	t.Setenv("PJ_PLUGIN_DIR", tmpDir)
+
+	got, err := ResolvePlugin("testcmd")
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
-	if got != expectedVal {
-		t.Errorf("expected %s, got %s", expectedVal, got)
+	if got != mockBinPath {
+		t.Errorf("expected path %s, got %s", mockBinPath, got)
 	}
 }
 
-func TestResolve_NotFound(t *testing.T) {
-	// Capture stdout to prevent log prints from cluttering test output
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+func TestResolvePlugin_NotFound(t *testing.T) {
+	// Point PJ_PLUGIN_DIR to an empty temp directory
+	t.Setenv("PJ_PLUGIN_DIR", t.TempDir())
+	// Clear PATH variable to ensure exec.LookPath does not find system-wide binaries
+	t.Setenv("PATH", "")
 
-	got, err := Resolve("NON_EXISTENT_ENV_VAR")
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	got, err := ResolvePlugin("non-existent-plugin-xyz")
 
 	if err == nil {
-		t.Fatal("expected error when environment variable is missing, got nil")
+		t.Fatal("expected error when plugin is missing, got nil")
 	}
 
 	if got != "" {
-		t.Errorf("expected empty string, got %s", got)
+		t.Errorf("expected empty path string, got %s", got)
 	}
 
-	if !strings.Contains(buf.String(), "cannot find") {
-		t.Errorf("expected stdout to print error message, got: %s", buf.String())
+	expectedErrSubstr := "not found"
+	if !strings.Contains(err.Error(), expectedErrSubstr) {
+		t.Errorf("expected error message to contain %q, got: %v", expectedErrSubstr, err)
 	}
 }
 
@@ -134,33 +142,50 @@ func TestResolve_NotFound(t *testing.T) {
 // 2. TESTS FOR DISPATCH FUNCTION
 // ==========================================
 
-func TestDispatch_MissingEnv(t *testing.T) {
-	// Mock os.Args state
+func TestDispatch_PluginNotFound(t *testing.T) {
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()
-	os.Args = []string{"pj", "my-plugin"}
 
-	// Dispatch() currently calls Resolve(""), which should fail
+	// Mock os.Args with subcommand and parameters matching expected CLI input
+	os.Args = []string{"pj", "jump.sh", "arg1"}
+
+	// Set PJ_PLUGIN_DIR to an empty temp directory
+	t.Setenv("PJ_PLUGIN_DIR", t.TempDir())
+
+	// Clear PATH to force ResolvePlugin("jump.sh") to fail completely
+	t.Setenv("PATH", "")
+
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
 	err := Dispatch()
 	if err == nil {
-		t.Error("expected error due to Resolve(\"\") failure, got nil")
+		t.Error("expected error due to missing plugin, got", err)
 	}
 }
 
-func TestDispatch_InvalidCommand(t *testing.T) {
-	// Prepare mock environment if the env name in Resolve is fixed
-	t.Setenv("PJ_PLUGIN_DIR", "/tmp") // Mocking empty string env to bypass temporarily
+func TestDispatch_InvalidExecution(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Dispatch currently resolves "jump.sh" hardcoded -> "pj-jump.sh"
+	binName := "pj-jump.sh"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	mockBinPath := filepath.Join(tmpDir, binName)
+
+	// Create non-executable content or invalid script binary
+	//nolint:gosec // 0755 permission is required for the executable bit test in isExecutable()
+	_ = os.WriteFile(mockBinPath, []byte("invalid binary content"), 0755)
+
+	t.Setenv("PJ_PLUGIN_DIR", tmpDir)
 
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()
-	os.Args = []string{"pj", "invalid-binary-command-xyz"}
+	os.Args = []string{"pj", "jump.sh", "dummy-arg"}
 
 	err := Dispatch()
 	if err == nil {
-		t.Error("expected error due to missing binary, got nil")
-	}
-
-	if !strings.Contains(err.Error(), "failed to start process") {
-		t.Errorf("expected error 'failed to start process', got: %v", err)
+		t.Error("expected execution error, got nil")
 	}
 }

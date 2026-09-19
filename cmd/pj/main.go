@@ -1,8 +1,15 @@
 package main
 
-import "github.com/danydevid/pj/internal/cli"
+import (
+	"fmt"
+	"os"
+
+	"github.com/danydevid/pj/internal/cli"
+)
 
 func main() {
-	cli.Execute()
-	cli.Dispatch()
+	if err := cli.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
