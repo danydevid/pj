@@ -1,9 +1,5 @@
 # Config Spec `pj`
 
-Here is the complete translation of the technical document into **Standard English**, maintaining all content, tables, code blocks, and details:
-
----
-
 ## 1. File Locations
 
 | File | Location | Format |
