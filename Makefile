@@ -1,71 +1,58 @@
-# Makefile
-# Go Multi-Binary Project Automation Toolkit
+# pj — Makefile
+#
+# Targets: build, install, clean, test, fmt, vet, lint, run
+#
+# Overrides: PREFIX, BIN_DIR, PLUGIN_DIR
 
-# --- Configuration & Variables ---
-APP_DIR    := ./cmd
-BIN_DIR    := ./bin
-APPS       := $(shell ls $(APP_DIR) 2>/dev/null)
+PREFIX     ?= $(HOME)/.local
+BIN_DIR    ?= $(PREFIX)/bin
+PLUGIN_DIR ?= $(HOME)/.pj/bin
 
-# Go Commands
-GOCMD      := go
-GOBUILD    := $(GOCMD) build
-GOTEST     := $(GOCMD) test
-GOCLEAN    := $(GOCMD) clean
+GO      ?= go
+GOFLAGS ?=
 
-# Linter Tool
-LINTER     := golangci-lint
+.PHONY: all build install clean test fmt vet lint run help
 
-# Build Flags
-BUILD_FLAGS := -v
+all: build
 
-.PHONY: all help lint test build clean $(APPS)
-
-# Default target executed when running 'make'
-all: lint test build
-
-## help: Display available CLI commands
-help:
-	@echo "Usage:"
-	@echo "  make <target>"
-	@echo ""
-	@echo "Targets:"
-	@echo "  all       Run linter, test suite, and build all binaries"
-	@echo "  lint      Execute static code analysis using .golangci.yml"
-	@echo "  test      Run all unit tests in the workspace"
-	@echo "  build     Compile all binaries in $(APP_DIR) to $(BIN_DIR)/"
-	@echo "  clean     Remove compiled binaries and execution artifacts"
-	@echo "  <app>     Build a specific application binary (e.g., make api)"
-
-## lint: Run golangci-lint across all packages
-lint:
-	@echo "==> Running linters..."
-	@$(LINTER) run ./...
-
-## test: Run unit tests with race condition detector
-test:
-	@echo "==> Running unit tests..."
-	@$(GOTEST) -v -race ./...
-
-## build: Compile all binary targets in the cmd directory
+## build: compile manager + plugins into ./bin
 build:
-	@echo "==> Building all binaries..."
-	@mkdir -p $(BIN_DIR)
-	@for app in $(APPS); do \
-		echo "  -> Compiling $$app..."; \
-		$(GOBUILD) $(BUILD_FLAGS) -o $(BIN_DIR)/$$app $(APP_DIR)/$$app; \
-	done
-	@echo "==> All binaries successfully created in $(BIN_DIR)/"
+	@scripts/build.sh
 
-## <app>: Target for building an individual binary dynamically
-$(APPS):
-	@echo "==> Building dynamic target: $@..."
-	@mkdir -p $(BIN_DIR)
-	@$(GOBUILD) $(BUILD_FLAGS) -o $(BIN_DIR)/$@ $(APP_DIR)/$@
-	@echo "==> Binary successfully created at $(BIN_DIR)/$@"
+## install: install into $(BIN_DIR) and $(PLUGIN_DIR)
+install: build
+	@PREFIX=$(PREFIX) BIN_DIR=$(BIN_DIR) PLUGIN_DIR=$(PLUGIN_DIR) scripts/install.sh
 
-## clean: Remove all generated binaries and temporary files
+## clean: remove build artifacts
 clean:
-	@echo "==> Cleaning build artifacts..."
-	@$(GOCLEAN)
-	@rm -rf $(BIN_DIR)
-	@echo "==> Workspace cleaned successfully."
+	rm -rf bin
+
+## test: run unit tests
+test:
+	$(GO) test $(GOFLAGS) ./...
+
+## fmt: format all Go sources
+fmt:
+	@gofmt -s -w .
+	@command -v goimports >/dev/null 2>&1 && goimports -w . || true
+
+## vet: run go vet
+vet:
+	$(GO) vet ./...
+
+## lint: run golangci-lint
+lint:
+	@golangci-lint run ./...
+
+## run: build and invoke the manager (usage: make run ARGS="list")
+run: build
+	@./bin/pj $(ARGS)
+
+## help: list targets
+help:
+	@awk 'BEGIN{FS=":.*##"} /^## /{sub(/^## /,""); print}' $(MAKEFILE_LIST)
+	@echo
+	@echo "Variables:"
+	@echo "  PREFIX      = $(PREFIX)"
+	@echo "  BIN_DIR     = $(BIN_DIR)"
+	@echo "  PLUGIN_DIR  = $(PLUGIN_DIR)"

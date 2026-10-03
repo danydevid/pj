@@ -60,7 +60,7 @@ Open an issue using the following template:
 ### 4.2 Clone
 
 ```bash
-git clone https://github.com/example/pj.git
+git clone https://github.com/danydevid/pj.git
 cd pj
 
 ```
@@ -133,7 +133,7 @@ package main
 
 import (
     "os"
-    "example.com/pj/internal/plugin/foo"
+    "github.com/danydevid/pj/internal/plugin/foo"
 )
 
 func main() {
